@@ -1,0 +1,147 @@
+<html>
+	<head>
+		<script src="game.js"></script>
+		<script src="js/socket.io.js"></script>
+	</head>
+	<body>
+		<div id="container">
+			<!-- Bound Stage -->
+		</div>
+		<div id="contentForm">
+			<input type="text" id="myPlayer"> 
+			<button id="btn" onclick="addMyPlayer();">Conectar</button>
+		</div>
+		<script>
+			
+			socket =io.connect(serverNode+':'+port);
+			
+			var listPlayers = [];
+			
+			var player;
+			
+			
+			//add New Player
+			socket.on("newPlayer",function(data){
+				player = new Player(data.idPlayer);
+				player.x = data.x;
+				player.y = data.y;
+				player.addAccion('run','images/soldier_run.gif');
+				player.addAccion('shoot','images/soldier_shoot.gif');
+				game.newPlayer(player);
+				player.setAccion(player.idPlayer,'run');
+			});
+			
+			socket.emit("newConnectPlayer",listPlayers);
+			
+			socket.on("setPlayers",function(ob){
+				Object.keys(ob).forEach(function(key){
+					var data =ob[key];
+					console.log(data);
+					
+					var mplayer = new Player(data.idPlayer);
+					mplayer.x = data.x;
+					mplayer.y = data.y;
+					mplayer.addAccion('run','images/soldier_run.gif');
+					mplayer.addAccion('shoot','images/soldier_shoot.gif');
+					game.newPlayer(mplayer);
+					mplayer.setAccion(mplayer.idPlayer,'run');	
+				});
+			});
+			
+			
+			//add myPlayer
+			function addMyPlayer(){
+				myPlayer.idPlayer = document.getElementById("myPlayer").value;
+				myPlayer.x = 100;
+				myPlayer.y = 200;
+				socket.emit("newPlayer",myPlayer);
+				var obForm = document.getElementById("contentForm");
+				obForm.style.display="none";
+			}
+		
+			game.show("container");
+			
+			//delete player
+			socket.on("deletePlayer",function(data){
+				game.deletePlayer(data);
+				console.log(game.players);
+			});
+			
+			
+			//move any player on game
+			socket.on("movePlayer",function(data){
+				var player = new Player();
+				var obPlayer = player.getPlayer(data.idPlayer);
+				obPlayer.move(data.idPlayer,data.x,data.y);
+			});
+			
+			
+			
+			
+			var _player;
+			var sendingShoot = false;
+			//shoot any player on game
+			socket.on("shootPlayer",function(data){
+				var player = new Player();
+				var obPlayer = player.getPlayer(data.idPlayer);
+				obPlayer.setAccion(data.idPlayer,'shoot');
+				setTimeout(function(){
+					var c = player.getPlayer(data.idPlayer);
+					obPlayer.setAccion(data.idPlayer,'run');
+					//TODO:REVISAR PORQUE _player
+					sendingShoot = false;
+					socket.emit('movePlayer', c);
+				},3000);
+			});
+			
+			
+			//listener my player move
+			document.body.onload=function(){
+				document.addEventListener("keydown", function(key){
+					
+					if( Object.keys(myPlayer).length == 0 ) 
+						return;
+					
+					_player = player.getPlayer(myPlayer.idPlayer);
+					//console.log(key.keyCode);
+					
+					if( key.keyCode == MOVE_UP ){
+						_player.y += mySpeed;
+						socket.emit('movePlayer', _player);
+					}
+					
+					if( key.keyCode == MOVE_DOWN ){
+						_player.y -= mySpeed;
+						socket.emit('movePlayer', _player);
+					}
+					
+					if( key.keyCode == MOVE_RIGHT ){
+						_player.x += mySpeed;
+						socket.emit('movePlayer', _player);
+					}
+					
+					if( key.keyCode == MOVE_LEFT ){
+						_player.x -= mySpeed;
+						socket.emit('movePlayer', _player);
+					}
+					
+					if( key.keyCode == KEY_SHOOT ){
+						if(sendingShoot)
+							return;
+							
+						if( _player.getAccion() != 'shoot' ){
+							sendingShoot = true;
+							socket.emit('shootPlayer', {"idPlayer":_player.idPlayer,"accion":"disparando"});
+						}
+					}
+					
+					
+					
+				},false);
+			}
+		</script>
+		
+		
+	</body>
+	
+</html>
